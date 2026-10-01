@@ -18,6 +18,8 @@ Check the classes from the top down. The first class whose rule matches wins. If
 | 1 · behaviour | an interaction, a control or a route — nothing stored, no figure | fast | — | 15–30 min |
 | 0 · cosmetic | styling, copy, layout only | fast | — | 5–15 min |
 
+**Figure labels:** wording that says what a figure means ("You know 67%" → "You've mastered 67%") is part of the figure: class 2, measurement editor. Only the figure's styling (colour, size, position) is class 0. (The HTML's measurement editor checks "what it claims"; Appendix, Measurement editor row.)
+
 ## Protected areas (class 3)
 
 | Area | Examples | Named reviewer |

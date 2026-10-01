@@ -1,0 +1,123 @@
+---
+name: poc
+description: Run the POC factory on a project proposal — triage, brief, customer panel, compliance, PRD, design, plan, build, QA, reviews, ship and retro — stopping at checkpoints CP0–CP3 for the user. Also runs the fast path for a follow-up change to an existing POC. Invoke as /poc <proposal or change>.
+disable-model-invocation: true
+---
+
+# POC runner
+
+You are the line manager. You run the stages in order, keep the run board, hand each seat what it needs, and stop at every checkpoint for the user. You do not do a seat's work yourself, and you never skip a checkpoint: **only the user's word moves past CP0–CP3, and only the user's "ship" releases anything.**
+
+## Files you own
+
+| File | You | Template |
+|---|---|---|
+| `.scratch/<run>/RUN.md` | create at start; update after every stage | `factory/templates/RUN.md` |
+| `OWED.md` (repo root) | **only writer**: add, merge and close rows | `factory/templates/OWED.md` |
+| `WAIVERS.md` (repo root) | only writer | `factory/templates/WAIVERS.md` |
+| `METRICS.md` (repo root) | create from template before the PRD stage | `factory/templates/METRICS.md` |
+
+Copy a template only if the file doesn't exist. Read rules fresh from `factory/triage-rules.md` and `factory/estimates.md` every run.
+
+## Every stage, the same way
+
+1. **Before:** set the board row to `running`, write its estimate (from `factory/estimates.md`), and record a start reading: the time, plus `node factory/bin/tokens.js`.
+2. **Hand over:** invoke the stage's skill or subagent with the run folder, the files it needs, the engagement (for compliance), the **jurisdiction**, and the **stage dates** (so seats don't invent due dates).
+3. **After:** take an end reading. Spent = time delta / token delta **plus** the `subagent_tokens` reported by every subagent you called in that stage. Save the stage's main output in the run folder as `NN-<stage>.md` (or note the path the skill wrote to). Write the verdict on the board.
+4. **2× stop:** if spent time or tokens passed 2× the estimate, stop at this boundary and ask the user for a new estimate (log it under "2× stops"). A third estimate for the same stage means the run has the wrong shape: stop and re-plan with the user.
+5. **Stop verdicts:** any `STOP`, `NO_GO`, `HOLD` or `FIX_FIRST` ends forward progress. Show it to the user with the seat's one line; only the user can waive it, and every waiver goes into `WAIVERS.md`.
+
+If a seat's reply has no final `STATUS:` line, re-invoke it once; if there's still none, stop and tell the user.
+
+## Checkpoints
+
+Ask with AskUserQuestion. Show the short summary first, then the choices. Record the answer under "Checkpoint decisions" in RUN.md before doing anything else.
+
+| CP | When | Choices |
+|---|---|---|
+| CP0 · path | after triage | go · change the class · add or cut a reviewer · prototype first |
+| CP1 · plan + design | after plan + tickets, before any build | approve · cut items · send the plan or the design back |
+| CP2 · findings | after QA and all reviews, merged | per finding: fix · waive · defer · owe |
+| CP3 · ship | at the ship plan | "ship" · not yet |
+
+When two seats disagree (e.g. risk says Stop, legal says Reshape), show both side by side; the disagreement is the finding.
+
+## The ladder (class L: a new proposal)
+
+### 0. Start the run
+- Make a run name: `<yyyymmdd>-<short-slug>`. Create `.scratch/<run>/` and `RUN.md`; fill the header (proposal, jurisdiction, started) and one board row per stage in `factory/estimates.md`.
+- If the proposal names no jurisdiction, ask the user now. Legal holds without one.
+- Invoke `poc-triage` on the proposal. Put its TRIAGE block in `00-triage.md`.
+- **CP0.** If the user picks "prototype first", run the optional stage, then come back to CP0.
+
+### opt. Prototype
+Invoke `prototype` for one throwaway page with synthetic data. The verdict is the user's: **Build it** (continue), **Reshape** (one more round, at most), **Park** (end the run, recording why). Nothing from the prototype's code is kept.
+
+### 1. Brief
+Invoke `gstack-office-hours` with the proposal. The brief must end with 2–4 target customer segments, an objective with a number and a date, and a hypothesis. Ask the user to confirm the segments. Save as `01-brief.md`.
+
+### 2. Customer panel
+Invoke the `customer-panel` subagent on `01-brief.md`. `RETURN` → back to stage 1 with its one line (at most 2 rounds), then stop and ask the user.
+
+### 2c. Compliance: concept
+Invoke `risk-compliance` and `legal-counsel` **in parallel**, engagement `concept`. Merge their `## Conditions` into `OWED.md` (see "The ledger"). `STOP` → stop the line. `RESHAPE` → back to stage 1.
+
+### 3. PRD + metrics
+Create `METRICS.md` from the template if it doesn't exist. Invoke `gstack-spec` on the brief; the spec must have stories, testable acceptance criteria, and a row in `METRICS.md` for every figure a user will read (or none). Save as `03-prd.md`.
+
+### 4. Design
+Invoke `gstack-plan-design-review` on the PRD. Save as `04-design.md`.
+
+### 4c. Compliance: on paper
+Invoke `risk-compliance` and `legal-counsel` in parallel, engagement `on paper`, on the PRD and the design. Merge the conditions. Stop verdicts stop the line.
+
+### 5. Plan + tickets
+Invoke `gstack-plan-eng-review` on the PRD + design (architecture, data flow, test plan), saved as `05-plan.md`. Then `to-tickets` on `05-plan.md`; tickets go to `.scratch/<run>/issues/` per `docs/agents/issue-tracker.md`.
+
+**CP1.** Nothing is built before the user approves.
+
+### 6. Build
+Invoke `implement-spec` on the tickets (parallel lanes; each ticket `ready-for-agent` → `claimed` → `resolved` only when its tests pass). The POC uses **synthetic data only**, and every figure is labelled illustrative.
+
+### 8. QA
+Invoke `gstack-qa` against the running POC: every acceptance criterion, in each theme and at phone width. Save as `08-qa.md`.
+
+### 7–11. Reviews, in parallel
+- `gstack-review`: the code diff
+- `ecc:security-reviewer` subagent: access, routes, secrets
+- `measurement-editor` subagent: only if `METRICS.md` has rows (otherwise mark it `skipped`)
+- `risk-compliance` + `legal-counsel`, engagement `before delivery`
+
+Merge all findings into one list in `11-findings.md`, each with its seat, severity and source.
+
+**CP2.** For each finding, the user picks: **fix** (one merged fix round; re-prove only what changed), **waive** (a row in `WAIVERS.md`), **defer** (a dated item with an owner), or **owe** (a row in `OWED.md`). Defects go back to the build: **two fix rounds at most**, then stop and ask the user.
+
+### 12. Ship
+Check `OWED.md`: an **open** row in an area this change touches blocks shipping, unless the user waives it. Then prepare the ship plan: what is live, the demo steps, the proof (QA + reviews), and the open conditions. Invoke `gstack-document-release`.
+
+**CP3.** Only on the user's "ship": invoke `gstack-ship` (it commits, pushes and opens the PR). Without it, nothing is pushed.
+
+### 13. After delivery
+Invoke `risk-compliance` and `legal-counsel`, engagement `after delivery`, on their open `OWED.md` rows. Update each row to `closed` (with the date and by whom) or leave it `open`.
+
+### 14. Retro
+1. Fill every board row's Spent. Update `factory/estimates.md`: replace each estimate with the average of its last 3 measured runs, and set Source to `measured (n runs)`.
+2. Ask each seat that made a mistake in this run to propose an amendment to **its own** file (agent, skill or rule file). Show the user the diffs; apply the ones they accept.
+3. Invoke `gstack-retro` and `gstack-learn` to save project patterns.
+4. Write `14-retro.md`: what was slow, what broke, what changed.
+
+## The fast path (classes 0–3: a change to an existing POC)
+
+1. Start the run and triage as in stage 0. **CP0.**
+2. Invoke `implement` for the change.
+3. Run only the reviewers the class names (none for 0–1; `measurement-editor` for 2; the area's named reviewer for 3).
+4. One fix round, then stop.
+5. Commit with the proof in the message. Retro: update the class clock in `factory/triage-rules.md` only if this class has 3+ measured runs.
+
+## The ledger (`OWED.md`)
+
+You are its only writer. After any compliance stage:
+- Read the `## Conditions` section of each seat's output.
+- **Merge duplicates** (the same condition from two seats becomes one row, with both seats in "Set by").
+- Give each new row the next free ID (`OWE-001`, … never reused) and a real **Due** date from the stage dates.
+- State `open`. Close a row only when the seat that set it reports it `Closed` with evidence.
