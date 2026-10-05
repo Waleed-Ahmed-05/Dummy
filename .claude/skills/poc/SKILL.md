@@ -29,6 +29,10 @@ Copy a template only if the file doesn't exist. Read rules fresh from `factory/t
 
 If a seat's reply has no final `STATUS:` line, re-invoke it once; if there's still none, stop and tell the user.
 
+**Every seat is a subagent** in `.claude/agents/`, one per seat of the operating model: prototyper, strategist, customer-panel, product-manager, ux-designer, architect, engineer, qa-lead, measurement-editor, release-manager, risk-compliance, legal-counsel, security-engineer. Each charter wraps the skill the seat uses, names its first source, holds one gate and ends in the model's own verdict; write that verdict on the board. Pass each seat the run folder, the files it needs, the engagement, the jurisdiction and the stage dates. Subagents load at session start: if a seat isn't available by name yet (a new charter, no restart since), run a general-purpose agent with "Follow `.claude/agents/<seat>.md` exactly" and the same inputs.
+
+**Nothing is fixed before CP2.** Review and QA seats report; their findings wait for the user's decision at CP2. The only fixes before CP2 are the user's own CP1 decisions.
+
 ## Checkpoints
 
 Ask with AskUserQuestion. Show the short summary first, then the choices. Record the answer under "Checkpoint decisions" in RUN.md before doing anything else.
@@ -51,10 +55,10 @@ When two seats disagree (e.g. risk says Stop, legal says Reshape), show both sid
 - **CP0.** If the user picks "prototype first", run the optional stage, then come back to CP0.
 
 ### opt. Prototype
-Invoke `prototype` for one throwaway page with synthetic data. The verdict is the user's: **Build it** (continue), **Reshape** (one more round, at most), **Park** (end the run, recording why). Nothing from the prototype's code is kept.
+Invoke the `prototyper` subagent for one throwaway page with synthetic data; it returns `TOUCHABLE` or `BLOCKED`. The verdict on the idea is the user's: **Build it** (continue), **Reshape** (one more round, at most), **Park** (end the run, recording why). Nothing from the prototype's code is kept.
 
 ### 1. Brief
-Invoke `gstack-office-hours` with the proposal. The brief must end with 2–4 target customer segments, an objective with a number and a date, and a hypothesis. Ask the user to confirm the segments. Save as `01-brief.md`.
+Invoke the `strategist` subagent with the proposal. The brief (`01-brief.md`) names 2–4 target customer segments, an objective with a number and a date, the hypothesis and a test that could prove it wrong. `RESHAPE` or `PARK` → show the user. Ask the user to confirm the segments.
 
 ### 2. Customer panel
 Invoke the `customer-panel` subagent on `01-brief.md`. `RETURN` → back to stage 1 with its one line (at most 2 rounds), then stop and ask the user.
@@ -63,39 +67,38 @@ Invoke the `customer-panel` subagent on `01-brief.md`. `RETURN` → back to stag
 Invoke `risk-compliance` and `legal-counsel` **in parallel**, engagement `concept`. Merge their `## Conditions` into `OWED.md` (see "The ledger"). `STOP` → stop the line. `RESHAPE` → back to stage 1.
 
 ### 3. PRD + metrics
-Create `METRICS.md` from the template if it doesn't exist. Invoke `gstack-spec` on the brief; the spec must have stories, testable acceptance criteria, and a row in `METRICS.md` for every figure a user will read (or none). Save as `03-prd.md`.
+Create `METRICS.md` from the template if it doesn't exist. Invoke the `product-manager` subagent on the brief: stories, testable acceptance criteria, and a proposed `METRICS.md` row for every figure a user will read (or none). Write those rows into `METRICS.md` yourself. `NOT_READY` → back to the seat once, then ask the user.
 
 ### 4. Design
-Invoke `gstack-plan-design-review` on the PRD. Save as `04-design.md`.
+Invoke the `ux-designer` subagent on the PRD; it writes `04-design.md` and returns `READY_FOR_ENGINEERING` or `NOT_READY`.
 
 ### 4c. Compliance: on paper
 Invoke `risk-compliance` and `legal-counsel` in parallel, engagement `on paper`, on the PRD and the design. Merge the conditions. Stop verdicts stop the line.
 
 ### 5. Plan + tickets
-Invoke `gstack-plan-eng-review` on the PRD + design (architecture, data flow, test plan), saved as `05-plan.md`. Then `to-tickets` on `05-plan.md`; tickets go to `.scratch/<run>/issues/` per `docs/agents/issue-tracker.md`.
+Invoke the `architect` subagent on the PRD + design. It writes `05-plan.md` (architecture, data flow, test plan) and the tickets in `.scratch/<run>/issues/` per `docs/agents/issue-tracker.md`, and returns `READY_TO_BUILD` or `NOT_READY`.
 
-**CP1.** Nothing is built before the user approves.
+**CP1.** Show the plan, the tickets and every seat's "Decisions for the user" (brief, PRD, design, plan). Nothing is built before the user approves.
 
 ### 6. Build
-Invoke `implement-spec` on the tickets (parallel lanes; each ticket `ready-for-agent` → `claimed` → `resolved` only when its tests pass). The POC uses **synthetic data only**, and every figure is labelled illustrative.
+Run the ticket graph as `.claude/skills/implement-spec/SKILL.md` describes, with one `engineer` subagent per frontier ticket, each in its own worktree on the integration branch (parallel lanes). You merge each `BUILT` branch, re-run the tests, and move its ticket `ready-for-agent` → `claimed` → `resolved` only when they pass. When every ticket is merged, run `code-review` on the integration branch **report only**: its findings go into `11-findings.md` for CP2, not to a fix round. The POC uses **synthetic data only**, and every figure is labelled illustrative.
 
 ### 8. QA
-Invoke `gstack-qa` against the running POC: every acceptance criterion, in each theme and at phone width. Save as `08-qa.md`.
+Start the POC, then invoke the `qa-lead` subagent against it: every acceptance criterion, in each theme and at phone width, report only. It writes `08-qa.md` and returns `PASS` or `FAIL`; its findings go to CP2.
 
 ### 7–11. Reviews, in parallel
-- `gstack-review`: the code diff
-- `ecc:security-reviewer` subagent: access, routes, secrets
 - `measurement-editor` subagent: only if `METRICS.md` has rows (otherwise mark it `skipped`)
 - `risk-compliance` + `legal-counsel`, engagement `before delivery`
+- `security-engineer` subagent: access, routes, secrets (the ladder always; the fast path when a protected area is touched)
 
-Merge all findings into one list in `11-findings.md`, each with its seat, severity and source.
+Merge all findings (these, QA's and stage 6's code review) into one list in `11-findings.md`, each with its seat, severity and source. A `FIX_FIRST` stops the line like a No-go.
 
-**CP2.** For each finding, the user picks: **fix** (one merged fix round; re-prove only what changed), **waive** (a row in `WAIVERS.md`), **defer** (a dated item with an owner), or **owe** (a row in `OWED.md`). Defects go back to the build: **two fix rounds at most**, then stop and ask the user.
+**CP2.** For each finding, the user picks: **fix** (one merged fix round; re-prove only what changed), **waive** (a row in `WAIVERS.md`), **defer** (a dated item with an owner), or **owe** (a row in `OWED.md`). Fixes go to one `engineer` subagent as one merged list, then the seats whose findings changed re-check: **two fix rounds at most**, then stop and ask the user.
 
 ### 12. Ship
-Check `OWED.md`: an **open** row in an area this change touches blocks shipping, unless the user waives it. Then prepare the ship plan: what is live, the demo steps, the proof (QA + reviews), and the open conditions. Invoke `gstack-document-release`.
+Invoke the `release-manager` subagent, engagement `plan`. It proves the gates in a clean copy of the branch, checks `OWED.md` (an **open** row due before delivery in an area this change touches blocks shipping unless the user waived it), and writes the ship plan to `12-ship.md`: what is live, the demo steps, the proof (QA, reviews, clean copy), the open conditions, and the exact files and PR text. It returns `READY` or `HELD`.
 
-**CP3.** Only on the user's "ship": invoke `gstack-ship` (it commits, pushes and opens the PR). Without it, nothing is pushed.
+**CP3.** Only on the user's word "ship": invoke `release-manager` again, engagement `ship` (it runs `gstack-ship`: commit, push, PR) and record `SHIPPED`. Without the word, nothing is pushed.
 
 ### 13. After delivery
 Invoke `risk-compliance` and `legal-counsel`, engagement `after delivery`, on their open `OWED.md` rows. Update each row to `closed` (with the date and by whom) or leave it `open`.
@@ -109,8 +112,8 @@ Invoke `risk-compliance` and `legal-counsel`, engagement `after delivery`, on th
 ## The fast path (classes 0–3: a change to an existing POC)
 
 1. Start the run and triage as in stage 0. **CP0.**
-2. Invoke `implement` for the change.
-3. Run only the reviewers the class names (none for 0–1; `measurement-editor` for 2; the area's named reviewer for 3).
+2. Invoke one `engineer` subagent for the change.
+3. Run only the reviewers the class names (none for 0–1; `measurement-editor` for 2; for 3, the area's named seat: `risk-compliance`, `legal-counsel` or `security-engineer`).
 4. One fix round, then stop.
 5. Commit with the proof in the message. Retro: update the class clock in `factory/triage-rules.md` only if this class has 3+ measured runs.
 

@@ -1,6 +1,6 @@
 # POC Factory
 
-A predefined agentic workflow that turns a **project proposal into a working POC within a day**, with a person deciding at four checkpoints. Based on *Idea to Cleared Release* (the operating-model HTML). Built on gstack skills, mattpocock skills, ECC agents and four custom seats. Paperclip will take over orchestration later.
+A predefined agentic workflow that turns a **project proposal into a working POC within a day**, with a person deciding at four checkpoints. Based on *Idea to Cleared Release* (the operating-model HTML). Built on gstack skills, mattpocock skills and ECC, with one custom subagent per Prototype, Deliver and Compliance seat of the model (13 of its 21 seats; the 8 Operate seats come once something is live). Paperclip will take over orchestration later.
 
 ## How to start
 
@@ -22,7 +22,7 @@ The runner stops at **CP0** (path), **CP1** (plan + design), **CP2** (findings: 
 |---|---|
 | `.claude/skills/poc/` | the runner |
 | `.claude/skills/poc-triage/` | applies `factory/triage-rules.md` |
-| `.claude/agents/` | custom seats: customer-panel, risk-compliance, legal-counsel, measurement-editor |
+| `.claude/agents/` | the seats: prototyper · strategist, customer-panel, product-manager, ux-designer, architect, engineer, qa-lead, measurement-editor, release-manager · risk-compliance, legal-counsel, security-engineer |
 | `.claude/skills/` (others) | mattpocock: prototype, to-tickets, implement, implement-spec, tdd, code-review, setup |
 | `factory/triage-rules.md` | classes 0–3 / L and protected areas |
 | `factory/estimates.md` | stage estimates for the 2× stop (the retro recalibrates them) |
