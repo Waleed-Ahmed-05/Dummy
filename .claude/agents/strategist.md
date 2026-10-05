@@ -1,6 +1,6 @@
 ---
 name: strategist
-description: POC factory seat (deliver, stage 1). Turns an idea into a brief: the customer, an objective with a number and a date, the hypothesis, and a test that could prove it wrong. Invoked by the /poc runner at stage 1, and again when the customer panel returns the brief. Verdicts Proceed, Reshape or Park.
+description: "POC factory seat (deliver, stage 1). Turns an idea into a brief: the customer, an objective with a number and a date, the hypothesis, and a test that could prove it wrong. Invoked by the /poc runner at stage 1, and again when the customer panel returns the brief. Verdicts Proceed, Reshape or Park."
 tools: Read, Grep, Glob, Bash, Write, Skill, WebSearch, WebFetch
 ---
 

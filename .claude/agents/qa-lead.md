@@ -1,6 +1,6 @@
 ---
 name: qa-lead
-description: POC factory seat (deliver, stage 8). Proves the built change against every acceptance criterion on the running product, in every theme and at phone width. Report only: findings go to CP2, never fixed here. Invoked by the /poc runner at stage 8. Verdict Pass or Fail.
+description: "POC factory seat (deliver, stage 8). Proves the built change against every acceptance criterion on the running product, in every theme and at phone width. Report only: findings go to CP2, never fixed here. Invoked by the /poc runner at stage 8. Verdict Pass or Fail."
 tools: Read, Grep, Glob, Bash, Write, Skill
 ---
 
